@@ -1,0 +1,55 @@
+name: Release
+
+# Publishes installers to GitHub Releases, which is where the in-app updater
+# looks. Tag a commit to cut a release:
+#
+#   npm version patch      # bumps package.json and creates the v* tag
+#   git push --follow-tags
+#
+# The draft release is created on the first matrix job and filled in by the
+# others; publish it from the Releases page when you are happy with it. The
+# updater only ever sees published (non-draft) releases.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The suite must pass before anything is published -- a release of a
+      # data-safety tool with a failing test is worse than no release.
+      - run: node --expose-gc test/run.js
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+          - os: macos-latest
+          - os: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build and publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --publish always

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self';" />
+  <title>AI Session Manager</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Custom title bar. The whole strip drags the window; controls opt out. -->
+  <div class="titlebar" id="titlebar">
+    <div class="tb-left">
+      <span class="mark" aria-hidden="true"></span>
+      <span class="tb-title">AI Session Manager</span>
+    </div>
+    <div class="tb-right">
+      <button class="tb-btn" id="winMin" title="Minimize" aria-label="Minimize">
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5h10" stroke="currentColor" stroke-width="1"/></svg>
+      </button>
+      <button class="tb-btn" id="winMax" title="Maximize" aria-label="Maximize">
+        <svg class="ico-max" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+        <svg class="ico-restore" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" hidden><rect x="0.5" y="2.5" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1"/><path d="M2.5 2.5V0.5h7v7h-2" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+      </button>
+      <button class="tb-btn tb-close" id="winClose" title="Close" aria-label="Close">
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <header class="topbar">
+    <div class="stats" id="scanSummary">Scanning&hellip;</div>
+    <span id="scanBar" class="scan-bar" hidden aria-hidden="true"><i></i></span>
+    <div class="topbar-actions">
+      <button id="updateBtn" class="btn btn-update" hidden></button>
+      <button id="refreshBtn" class="btn" title="Rescan session files">Refresh</button>
+      <button id="auditBtn" class="btn" title="Every write this app has made">History</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section">
+        <h2>Sources</h2>
+        <div id="toolList" class="tool-list"></div>
+      </div>
+      <div class="sidebar-section">
+        <h2 id="actionsHeading">Actions</h2>
+        <div class="action-stack">
+          <button id="exportBtn" class="btn btn-primary" disabled title="Export the selected sessions to a portable bundle">Export</button>
+          <button id="importBtn" class="btn" title="Import a bundle — previewed before anything is written">Import</button>
+          <button id="migrateBtn" class="btn" disabled title="Copy the selected sessions into another account's history">Migrate</button>
+          <button id="syncBtn" class="btn" title="Give every account the same history, without removing anything">Sync accounts</button>
+          <button id="verifyBtn" class="btn" disabled title="Stream the whole file to check for corruption">Verify</button>
+          <button id="repairBtn" class="btn" hidden title="Find entries that lost their transcript and relink them">Scan &amp; Repair</button>
+          <button id="unlinkBtn" class="btn btn-danger" hidden title="Remove the selected sessions from this account's history. The transcripts on disk are not touched.">Remove</button>
+        </div>
+      </div>
+      <div class="sidebar-section support-block">
+        <button id="supportBtn" class="support-cta" aria-label="Buy me a coffee — opens Ko-fi in your browser"
+                title="Support this project · Keep it free · Help it grow">
+          <svg class="cta-cup" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+            <g stroke="#ffd3e0" stroke-width="2.6" stroke-linecap="round" opacity=".85">
+              <path d="M4 18h5" /><path d="M5.5 25.5h4" /><path d="M7 33l3.6-2.1" />
+            </g>
+            <path d="M36 22h3.6a5.6 5.6 0 0 1 0 11.2H36" fill="none" stroke="#241f21" stroke-width="5.4" />
+            <path d="M36 22h3.6a5.6 5.6 0 0 1 0 11.2H36" fill="none" stroke="#fff" stroke-width="2" />
+            <rect x="14.6" y="14.6" width="22.8" height="24.8" rx="6.4" fill="#fff" stroke="#241f21" stroke-width="3.4" />
+            <rect x="18.2" y="17.4" width="15.6" height="4.8" rx="2.4" fill="#6b4226" />
+            <path d="M26 35c-4.3-3-6.4-5.2-6.4-7.7a3.5 3.5 0 0 1 6.4-2 3.5 3.5 0 0 1 6.4 2c0 2.5-2.1 4.7-6.4 7.7z" fill="#ff2d6f" />
+          </svg>
+          <span class="cta-text">
+            <span class="cta-title">Buy Me a <em>Coffee</em> <span class="cta-heart" aria-hidden="true">&#9829;</span></span>
+            <span class="cta-sub">Keep it free &middot; Help it grow</span>
+          </span>
+          <span class="cta-go" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M5 12h12M12 6.5l5.5 5.5L12 17.5" fill="none" stroke="currentColor"
+                    stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+        </button>
+      </div>
+      <div class="sidebar-section sidebar-foot">
+        <button class="linkish" id="revealBackups" title="Replaced files are copied here before any overwrite">Backups</button>
+        <button class="linkish" id="resetLayout" title="Panes and column widths back to defaults">Reset layout</button>
+      </div>
+    </aside>
+
+    <div class="pane-resizer" id="resizeSidebar" role="separator" aria-orientation="vertical"
+         title="Drag to resize · double-click to reset"></div>
+
+    <section class="content">
+      <div class="filters">
+        <input type="search" id="searchInput" placeholder="Filter&hellip;" />
+        <label class="chk" id="onlyWarningsWrap" title="Show only sessions with an integrity or size warning">
+          <input type="checkbox" id="onlyWarnings" /> Flagged
+        </label>
+        <label class="chk" id="groupToggleWrap" title="Group sessions under their project folder">
+          <input type="checkbox" id="groupToggle" /> Group
+        </label>
+        <label class="chk" id="notSyncedWrap" hidden title="Show only sessions that are missing from at least one account">
+          <input type="checkbox" id="notSyncedOnly" /> Not synced
+        </label>
+        <button id="collapseAllBtn" class="btn btn-small btn-caret" hidden>
+          <span class="caret" aria-hidden="true"></span><span id="collapseAllLabel">Collapse</span>
+        </button>
+        <span class="spacer"></span>
+        <span id="selectionInfo" class="selection-info" hidden></span>
+        <button id="selectAllBtn" class="btn btn-small" title="Select every session shown">All</button>
+        <button id="clearSelBtn" class="btn btn-small" title="Clear selection">None</button>
+      </div>
+
+      <div class="pane-scroll" id="compareWrap" hidden>
+        <table class="grid compare" id="compareTable">
+          <thead><tr id="compareHead"></tr></thead>
+          <tbody id="compareBody"></tbody>
+        </table>
+      </div>
+
+      <div class="table-wrap">
+        <table class="sessions" id="sessionsTable">
+          <thead>
+            <tr>
+              <th class="col-check"><input type="checkbox" id="headCheck" aria-label="Select all" /></th>
+              <th class="col-project sortable" data-sort="project">Project</th>
+              <th class="col-title sortable" data-sort="title">Session</th>
+              <th class="col-model sortable" data-sort="model">Model</th>
+              <th class="col-size sortable" data-sort="size">Size</th>
+              <th class="col-updated sortable" data-sort="updated">Updated</th>
+              <th class="col-state sortable" data-sort="state">State</th>
+            </tr>
+          </thead>
+          <tbody id="sessionsBody"></tbody>
+        </table>
+        <div id="emptyState" class="empty" hidden><p>Nothing matches.</p></div>
+      </div>
+    </section>
+
+    <div class="pane-resizer" id="resizeDetail" role="separator" aria-orientation="vertical"
+         title="Drag to resize · double-click to reset"></div>
+
+    <aside class="detail" id="detailPanel">
+      <div class="detail-empty" id="detailEmpty">
+        <p>Select a session.</p>
+      </div>
+      <div id="detailBody" hidden></div>
+    </aside>
+  </main>
+
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-head">
+        <h2 id="modalTitle">Preview</h2>
+        <button class="tb-btn modal-x" id="modalClose" aria-label="Close">
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0l10 10M10 0L0 10" stroke="currentColor" stroke-width="1"/></svg>
+        </button>
+      </header>
+      <div class="modal-body" id="modalBody"></div>
+      <footer class="modal-foot" id="modalFoot"></footer>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

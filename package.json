@@ -1,0 +1,102 @@
+{
+  "name": "ai-session-manager",
+  "productName": "AI Session Manager",
+  "version": "0.1.0",
+  "description": "Discover, back up, export, import, merge and convert local AI coding-agent session files. Reads raw transcripts on disk; never trusts a tool's own index.",
+  "main": "src/main/main.js",
+  "author": "Rimon360",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Rimon360/ai-session-manager.git"
+  },
+  "funding": {
+    "type": "ko-fi",
+    "url": "https://ko-fi.com/F2I226JXBS"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/run.js",
+    "test:large": "node --expose-gc test/run.js large",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "release": "electron-builder --publish always"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
+  "build": {
+    "appId": "dev.rimonlabs.aisessionmanager",
+    "productName": "AI Session Manager",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Rimon360",
+        "repo": "ai-session-manager",
+        "releaseType": "release"
+      }
+    ],
+    "files": [
+      "src/**/*",
+      "package.json",
+      "!**/*.map",
+      "!test/**",
+      "!shots/**"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "category": "Development",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  }
+}

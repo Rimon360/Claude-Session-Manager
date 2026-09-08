@@ -383,15 +383,30 @@ async function scanBroken(options = {}) {
  * `indexPaths` selects which broken records to repair; omit it for every one
  * that has a confident match.
  */
+/**
+ * The one spelling of a path that two sources will agree on.
+ *
+ * `path.resolve` normalises separators and `..`, but leaves a symlink and an
+ * 8.3 short name alone -- so `/var/folders/...` never equals the
+ * `/private/var/folders/...` the scanner reports, and `C:\Users\RUNNER~1\...`
+ * never equals `C:\Users\runneradmin\...`. A selection compared that way
+ * silently matches nothing and repairs the wrong set, which is the worst way
+ * for this particular filter to fail.
+ */
+function samePath(p) {
+  const resolved = path.resolve(String(p ?? ''));
+  try { return fs.realpathSync.native(resolved); } catch { return resolved; }
+}
+
 async function planRepair(options = {}) {
   const scan = await scanBroken(options);
   const wanted = Array.isArray(options.indexPaths) && options.indexPaths.length
-    ? new Set(options.indexPaths.map((p) => path.resolve(p)))
+    ? new Set(options.indexPaths.map(samePath))
     : null;
 
   const actions = [];
   for (const b of scan.broken) {
-    if (wanted && !wanted.has(path.resolve(b.indexPath))) continue;
+    if (wanted && !wanted.has(samePath(b.indexPath))) continue;
     if (!b.best) {
       actions.push({ kind: 'blocked', ...summary(b), reason: b.reason });
       continue;

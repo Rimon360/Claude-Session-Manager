@@ -34,13 +34,27 @@ function restoreEnv(prev) {
   set('XDG_DATA_HOME', prev.xdgD);
 }
 
-/** An isolated %APPDATA%, with the override cleared so the real rule runs. */
+/** An isolated data location, with the override cleared so the real rule runs. */
 function isolate(base) {
   process.env.AISM_HOME_OVERRIDE = base;
   process.env.APPDATA = path.join(base, 'AppData', 'Roaming');
+  process.env.XDG_DATA_HOME = path.join(base, '.local', 'share');
   delete process.env.AISM_DATA_OVERRIDE;
   fs.mkdirSync(process.env.APPDATA, { recursive: true });
-  return process.env.APPDATA;
+  return appDataParent(base);
+}
+
+/**
+ * Where this platform puts application data, inside the fixture.
+ *
+ * `appDataDir` is deliberately different on each OS, so a test that asserts
+ * the Windows location everywhere is testing the fixture rather than the
+ * rule. This mirrors the same three branches.
+ */
+function appDataParent(base) {
+  if (process.platform === 'win32') return path.join(base, 'AppData', 'Roaming');
+  if (process.platform === 'darwin') return path.join(base, 'Library', 'Application Support');
+  return path.join(base, '.local', 'share');
 }
 
 const paths = () => require('../src/core/paths');
@@ -52,17 +66,17 @@ describe('app storage: the rename must not strand anyone', () => {
   it('uses the new name on a machine that has never run the old app', () => {
     const prev = savedEnv();
     const base = H.tmpDir('paths-new'); dirs.push(base);
-    const appdata = isolate(base);
+    const parent = isolate(base);
 
-    assert.equal(paths().appDataDir(), path.join(appdata, 'claude-session-manager'));
+    assert.equal(paths().appDataDir(), path.join(parent, 'claude-session-manager'));
     restoreEnv(prev);
   });
 
   it('keeps using the old directory when one is already there', () => {
     const prev = savedEnv();
     const base = H.tmpDir('paths-legacy'); dirs.push(base);
-    const appdata = isolate(base);
-    const legacy = path.join(appdata, 'ai-session-manager');
+    const parent = isolate(base);
+    const legacy = path.join(parent, 'ai-session-manager');
     fs.mkdirSync(path.join(legacy, 'backups'), { recursive: true });
     fs.writeFileSync(path.join(legacy, 'settings.json'), '{"layout":{"sidebarWidth":300}}');
 
@@ -78,11 +92,11 @@ describe('app storage: the rename must not strand anyone', () => {
   it('prefers the new directory once one exists, so a move can be finished', () => {
     const prev = savedEnv();
     const base = H.tmpDir('paths-both'); dirs.push(base);
-    const appdata = isolate(base);
-    fs.mkdirSync(path.join(appdata, 'ai-session-manager'), { recursive: true });
-    fs.mkdirSync(path.join(appdata, 'claude-session-manager'), { recursive: true });
+    const parent = isolate(base);
+    fs.mkdirSync(path.join(parent, 'ai-session-manager'), { recursive: true });
+    fs.mkdirSync(path.join(parent, 'claude-session-manager'), { recursive: true });
 
-    assert.equal(paths().appDataDir(), path.join(appdata, 'claude-session-manager'));
+    assert.equal(paths().appDataDir(), path.join(parent, 'claude-session-manager'));
     restoreEnv(prev);
   });
 

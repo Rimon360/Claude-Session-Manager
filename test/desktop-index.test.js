@@ -68,6 +68,10 @@ function isolate(base) {
   process.env.LOCALAPPDATA = path.join(base, 'AppData', 'Local');
   fs.mkdirSync(process.env.APPDATA, { recursive: true });
   fs.mkdirSync(process.env.LOCALAPPDATA, { recursive: true });
+  // The fixture is Windows-shaped. APPDATA alone only reaches it on Windows,
+  // so the explicit override points at it too and the suite behaves the same
+  // on every platform.
+  process.env.AISM_CLAUDE_DESKTOP_ROOTS = path.join(base, 'AppData', 'Roaming', 'Claude');
 }
 function restoreEnv(prev) {
   const set = (k, v) => { if (v === undefined) delete process.env[k]; else process.env[k] = v; };

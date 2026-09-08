@@ -10,16 +10,20 @@
  */
 const crypto = require('crypto');
 const path = require('path');
+const paths = require('../paths');
 
-/** Claude Code encodes an absolute project path into one directory name. */
+/**
+ * Claude Code encodes an absolute project path into one directory name.
+ *
+ * This used to have its own implementation, which collapsed runs of dashes
+ * and kept dots. Measured against a real installation it matched 0 of 60
+ * project folders -- a session imported through this path would have landed
+ * in a directory Claude Code never reads, present on disk and invisible in
+ * the app. There is now one implementation, in paths.
+ */
 function encodeProjectDir(projectPath) {
   if (!projectPath) return 'unknown-project';
-  return projectPath
-    .replace(/^([A-Za-z]):/, '$1-')     // drive letter
-    .replace(/[\\/]/g, '-')              // separators
-    .replace(/[^A-Za-z0-9._-]/g, '-')    // anything else
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+  return paths.encodeClaudeProjectDir(projectPath);
 }
 
 function uuid() { return crypto.randomUUID(); }
@@ -45,7 +49,7 @@ function buildRows(session, options = {}) {
       userType: 'external',
       cwd: projectPath || null,
       sessionId,
-      version: 'ai-session-manager-converted',
+      version: 'claude-session-manager-converted',
       gitBranch: session.meta?.git?.branch ?? null,
       uuid: u,
       timestamp: row.timestamp || now,

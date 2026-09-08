@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Claude Session Manager">
+  <!--
+    The 16 and 24 pixel version. The elbows in icon.svg are a pixel wide down
+    there and vanish into the gradient, which leaves three bars and nothing
+    else -- a hamburger menu. So the trunk becomes a solid rail, and the bars
+    are given lengths different enough to still read as a list at 16px.
+  -->
+  <defs>
+    <linearGradient id="tileS" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7fa8f8"/>
+      <stop offset="0.55" stop-color="#5c7bea"/>
+      <stop offset="1" stop-color="#4a53c8"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="256" height="256" rx="56" fill="url(#tileS)"/>
+
+  <!-- The rail. -->
+  <rect x="60" y="62" width="16" height="132" rx="8" fill="#ffffff" fill-opacity="0.72"/>
+
+  <!-- Three sessions, deliberately uneven. -->
+  <g fill="#ffffff">
+    <rect x="94" y="62" width="102" height="30" rx="15"/>
+    <rect x="94" y="113" width="62" height="30" rx="15"/>
+    <rect x="94" y="164" width="84" height="30" rx="15"/>
+  </g>
+</svg>

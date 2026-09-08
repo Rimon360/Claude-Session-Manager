@@ -31,6 +31,10 @@ async function call(channel, ...args) {
 const PROGRESS_CHANNELS = ['progress:scan', 'progress:export', 'progress:sync', 'progress:import', 'update:state'];
 
 contextBridge.exposeInMainWorld('api', {
+  // Which OS drew the window. The title bar is the app's own on every
+  // platform, but macOS keeps its traffic lights and the layout has to make
+  // room for them instead of drawing a second set of buttons.
+  platform: process.platform,
   scan: () => call('discovery:scan'),
   verifySession: (uid) => call('session:verify', uid),
   attributeAccounts: (tool) => call('accounts:attribute', tool),

@@ -23,6 +23,7 @@ const merge = require('./merge');
 const safety = require('./safety');
 const audit = require('./audit');
 const { readJsonl } = require('./jsonl');
+const paths = require('./paths');
 
 const BUNDLE_SCHEMA_VERSION = 1;
 const MANIFEST_NAME = 'manifest.json';
@@ -76,7 +77,7 @@ async function exportBundle(entries, destZipPath, options = {}) {
     bundleSchemaVersion: BUNDLE_SCHEMA_VERSION,
     ussSchemaVersion: uss.SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
-    exportedBy: 'ai-session-manager',
+    exportedBy: 'claude-session-manager',
     platform: process.platform,
     note,
     sessions: [],
@@ -324,7 +325,7 @@ async function addDirToZip(writer, dir, root, record) {
 async function readManifest(zipPath) {
   const entries = await readCentralDirectory(zipPath);
   const manEntry = entries.find((e) => e.name === MANIFEST_NAME);
-  if (!manEntry) throw new Error(`${path.basename(zipPath)} has no ${MANIFEST_NAME}; it is not an AI Session Manager bundle.`);
+  if (!manEntry) throw new Error(`${path.basename(zipPath)} has no ${MANIFEST_NAME}; it is not a Claude Session Manager bundle.`);
   const buf = await readEntryBuffer(zipPath, manEntry);
   let manifest;
   try { manifest = JSON.parse(buf.toString('utf8')); } catch (err) { throw new Error(`manifest.json is not valid JSON: ${err.message}`); }
@@ -403,9 +404,17 @@ async function planImport(zipPath, options = {}) {
     const target = resolveDestination(rec, destTool, scan, accountRemap);
     action.destPath = target.destPath;
     action.destRoot = target.root;
+    if (target.note) action.lossy.push(target.note);
     if (!target.root) {
       action.kind = 'blocked';
       action.reason = `No ${destTool} installation found to import into.`;
+      actions.push(action);
+      continue;
+    }
+    if (!target.destPath) {
+      action.kind = 'blocked';
+      action.reason = 'The bundle does not say where this session belongs, and nothing in it '
+        + 'names a working directory to derive a place from. Nothing was written.';
       actions.push(action);
       continue;
     }
@@ -540,20 +549,62 @@ async function planImport(zipPath, options = {}) {
   return plan;
 }
 
-/** Where a session should land at the destination. */
+/**
+ * A path that is genuinely inside a root.
+ *
+ * `startsWith` on the string alone would accept `.../claude-evil` for a root
+ * of `.../claude`, so the separator is part of the test. Compared
+ * case-insensitively on Windows and macOS, where two spellings of the same
+ * directory are the same directory.
+ */
+function containedIn(root, target) {
+  if (!root || !target) return false;
+  const r = path.resolve(root);
+  const t = path.resolve(target);
+  const fold = (v) => (process.platform === 'linux' ? v : v.toLowerCase());
+  return fold(t) === fold(r) || fold(t).startsWith(fold(r + path.sep));
+}
+
+/**
+ * Where a session should land at the destination.
+ *
+ * The relative path comes out of the bundle, which is a file this app did
+ * not necessarily write. It is normalised for the platform doing the import
+ * -- a bundle made on Windows must restore on macOS and the other way round
+ * -- and refused outright if it points anywhere but inside the tool root.
+ *
+ * When the recorded location is unusable the session still gets a home,
+ * derived from the working directory the transcript itself records. That is
+ * the same rule Claude Code uses, so a scan finds it either way.
+ */
 function resolveDestination(rec, destTool, scan, accountRemap) {
   const tool = scan.tools.find((t) => t.tool === destTool && t.hasSessions) || scan.tools.find((t) => t.tool === destTool);
   if (!tool) return { root: null, destPath: null };
   const root = accountRemap?.root || tool.root;
 
+  let note = null;
   if (destTool === rec.sourceTool && rec.originalRelative) {
-    return { root, destPath: path.join(root, rec.originalRelative) };
+    const rel = paths.safeRelativePath(rec.originalRelative);
+    if (rel) {
+      const destPath = path.join(root, rel);
+      if (containedIn(root, destPath)) return { root, destPath, note };
+    }
+    // A location that escapes the root is not a location. The session is
+    // still restored -- refusing it would lose a conversation over a bad
+    // field -- but where it went is said out loud rather than quietly
+    // substituted, because a bundle claiming this was not written by us.
+    note = `The bundle asked for "${rec.originalRelative}", which is outside the `
+      + 'Claude Code directory. That location was ignored and the session is being '
+      + 'placed by its own working directory instead.';
   }
   if (destTool === 'claude-code') {
-    const ex = require('./exporters/claude-code');
-    return { root, destPath: path.join(root, ex.encodeProjectDir(rec.projectPath) ? path.join('projects', ex.encodeProjectDir(rec.projectPath), rec.sessionId + '.jsonl') : path.join('projects', 'imported', rec.sessionId + '.jsonl')) };
+    const folder = rec.projectPath
+      ? paths.encodeClaudeProjectDir(rec.projectPath)
+      : 'imported';
+    const destPath = path.join(root, 'projects', folder || 'imported', rec.sessionId + '.jsonl');
+    return containedIn(root, destPath) ? { root, destPath, note } : { root, destPath: null, note };
   }
-  return { root, destPath: null };
+  return { root, destPath: null, note };
 }
 
 /**
@@ -732,9 +783,24 @@ async function writeSession(plan, rec, action, entries, writeOptions) {
     for (const extra of rec.rawEntries.slice(1).concat(rec.sidecars || [])) {
       const ze = entries.find((e) => e.name === extra.archiveName);
       if (!ze) continue;
-      const rel = extra.archiveName.replace(/^raw\/[^/]+\//, '');
+      // Same treatment as the main file: the name is out of the archive, so
+      // it is normalised for this platform and has to land inside the root.
+      const rel = paths.safeRelativePath(String(extra.archiveName).replace(/^raw\/[^/]+\//, ''));
+      if (!rel) {
+        out.lossy.push(`Skipped ${extra.archiveName}: its name in the bundle is not a usable path.`);
+        continue;
+      }
       const dest = path.join(action.destRoot, rel);
-      if (fs.existsSync(dest) && !writeOptions.allowOverwrite) continue;
+      if (!containedIn(action.destRoot, dest)) {
+        out.lossy.push(`Skipped ${extra.archiveName}: it points outside the session directory.`);
+        continue;
+      }
+      // Never over an existing file unless overwriting was asked for, and
+      // then only after a backup -- a sub-agent transcript is a transcript.
+      if (fs.existsSync(dest)) {
+        if (!writeOptions.allowOverwrite) continue;
+        await safety.backupFile(dest, writeOptions.reason || 'import sidecar');
+      }
       await extractEntryToFile(plan.zipPath, ze, dest);
     }
     return out;

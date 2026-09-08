@@ -492,6 +492,18 @@ function resetLayout() {
 
 /* ---------------------------------------------------------- title bar */
 
+/**
+ * macOS draws its own traffic lights over the title bar, so the app must not
+ * draw a second set of window buttons and must keep its own content clear of
+ * the ones that are there. Marked on <html> so the stylesheet can do it in
+ * one place rather than every element asking.
+ */
+function markPlatform() {
+  const p = (window.api && window.api.platform) || 'win32';
+  document.documentElement.classList.toggle('is-mac', p === 'darwin');
+  document.documentElement.classList.toggle('is-linux', p === 'linux');
+}
+
 async function initTitleBar() {
   const send = (action) => window.api.windowAction(action).catch(() => {});
   $('winMin').addEventListener('click', () => send('minimize'));
@@ -2392,7 +2404,7 @@ $('supportBtn').addEventListener('click', async () => {
 function openSupportDialog(links) {
   openModal('Support this project', (body) => {
     body.append(el('div', 'warn-box info',
-      'AI Session Manager is free and open source. If it has saved you some history, a contribution helps keep it maintained.'));
+      'Claude Session Manager is free and open source. If it has saved you some history, a contribution helps keep it maintained.'));
 
     const linkRow = (label, url, note) => {
       if (!url) return;
@@ -2531,8 +2543,33 @@ if (typeof ResizeObserver === 'function') {
   if (wrap) new ResizeObserver(scheduleColumnFit).observe(wrap);
 }
 
+/**
+ * Who made it, in the corner where the other quiet links live.
+ *
+ * Filled from the app's own metadata rather than written into the markup:
+ * a fork changes one field in package.json and stops advertising someone
+ * else. Hidden entirely when there is no maker to name.
+ */
+async function initVendor() {
+  const btn = $('vendorLink');
+  if (!btn) return;
+  let links;
+  try { links = await window.api.support(); } catch { return; }
+  if (!links || !links.vendorName || !links.vendorUrl) return;
+
+  btn.textContent = links.vendorName.replace(/\s+LLC$/, '');
+  btn.title = `${links.vendorName} — ${links.vendorUrl}`;
+  btn.hidden = false;
+  btn.addEventListener('click', async () => {
+    try { await window.api.openExternal(links.vendorUrl); }
+    catch (err) { toast('Could not open the link', apiError(err).message, 'err'); }
+  });
+}
+
+markPlatform();
 initPaneResizers();
 initColumnResizers();
 initTitleBar();
+initVendor();
 initLayout().then(refresh);
 window.api.updateState().then(paintUpdate).catch(() => {});

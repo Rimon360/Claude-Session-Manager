@@ -67,11 +67,24 @@ function createWindow() {
     minWidth: 1040,
     minHeight: 640,
     backgroundColor: '#0f1115',
-    title: 'AI Session Manager',
-    // Frameless: the title bar is drawn by the renderer so the chrome matches
-    // the app rather than the OS. Resizing and snapping still work -- Electron
-    // keeps the hit-test border on a frameless resizable window.
-    frame: false,
+    title: 'Claude Session Manager',
+    // Only for a run from source. A packaged build carries the icon inside
+    // the executable, and build/ is a build resource that is not shipped --
+    // so this is absent there, which is why it is looked up rather than
+    // assumed.
+    ...(devIcon() ? { icon: devIcon() } : {}),
+    // The title bar is drawn by the renderer so the chrome matches the app
+    // rather than the OS. How that is asked for differs by platform, and
+    // getting it wrong on macOS is not cosmetic: `frame: false` there takes
+    // the traffic lights away with the frame, leaving a window with no close
+    // button except the one this app draws -- on the right, where no Mac user
+    // looks. `hiddenInset` keeps the real traffic lights and hides everything
+    // else, which is what a Mac app with a custom title bar actually does.
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 13, y: 10 } }
+      // Windows and Linux: frameless. Resizing and snapping still work --
+      // Electron keeps the hit-test border on a frameless resizable window.
+      : { frame: false }),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -151,6 +164,19 @@ function handle(channel, fn) {
       return { ok: false, error: { message: err.message, code: err.code ?? null, name: err.name ?? 'Error' } };
     }
   });
+}
+
+/**
+ * The icon file, when running from source.
+ *
+ * Windows wants the .ico -- it holds a raster for each size, and Windows'
+ * own downscale of a single large PNG is visibly worse at 16px.
+ */
+function devIcon() {
+  if (app.isPackaged) return null;
+  const dir = path.join(__dirname, '..', '..', 'build');
+  const file = path.join(dir, process.platform === 'win32' ? 'icon.ico' : 'icon.png');
+  return fs.existsSync(file) ? file : null;
 }
 
 /* ------------------------------------------------------------ IPC surface */
@@ -352,7 +378,7 @@ handle('export:run', async (uids, options = {}) => {
   const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
     title: 'Export session bundle',
     defaultPath: `ai-sessions-${new Date().toISOString().slice(0, 10)}.aism.zip`,
-    filters: [{ name: 'AI Session Manager bundle', extensions: ['zip'] }],
+    filters: [{ name: 'Claude Session Manager bundle', extensions: ['zip'] }],
   });
   if (canceled || !filePath) return { canceled: true };
 
@@ -378,7 +404,7 @@ handle('import:pick', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
     title: 'Open session bundle',
     properties: ['openFile'],
-    filters: [{ name: 'AI Session Manager bundle', extensions: ['zip'] }],
+    filters: [{ name: 'Claude Session Manager bundle', extensions: ['zip'] }],
   });
   if (canceled || !filePaths?.length) return { canceled: true };
   return { canceled: false, path: filePaths[0] };
@@ -401,7 +427,7 @@ handle('migration:export', async (uids, options = {}) => {
   const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
     title: 'Create migration bundle',
     defaultPath: `ai-sessions-migration-${new Date().toISOString().slice(0, 10)}.aism.zip`,
-    filters: [{ name: 'AI Session Manager bundle', extensions: ['zip'] }],
+    filters: [{ name: 'Claude Session Manager bundle', extensions: ['zip'] }],
   });
   if (canceled || !filePath) return { canceled: true };
   const res = await sync.planMigration(entries, filePath, options);
@@ -435,7 +461,11 @@ handle('app:paths', async () => ({
  */
 function supportLinks() {
   const saved = settings.load().support ?? {};
-  const owner = pkg.build?.publish?.[0]?.owner ?? pkg.author ?? null;
+  // `author` may be a string or the object form, and only a string is a GitHub
+  // handle -- interpolating the object form yields a sponsors link to
+  // "[object Object]".
+  const authorName = typeof pkg.author === 'string' ? pkg.author : null;
+  const owner = pkg.build?.publish?.[0]?.owner ?? authorName ?? null;
   const repoUrl = String(pkg.repository?.url ?? '')
     .replace(/^git\+/, '')
     .replace(/\.git$/, '') || null;
@@ -452,11 +482,19 @@ function supportLinks() {
       : host === 'github.com' ? 'Sponsor on GitHub'
         : 'Sponsor';
   }
+  // Who makes it. Read from package.json rather than written here, so a
+  // fork changes one field and does not end up shipping someone else's name.
+  const vendorName = typeof pkg.author === 'object' ? pkg.author.name : (pkg.author || null);
+  const vendorUrl = typeof pkg.author === 'object' ? (pkg.author.url || null) : null;
+
   return {
     sponsorUrl,
     sponsorLabel,
     repoUrl: saved.repoUrl || repoUrl,
     issuesUrl: repoUrl ? repoUrl + '/issues' : null,
+    vendorName,
+    vendorUrl,
+    siteUrl: pkg.homepage || null,
     // package.json, not app.getVersion(): the latter reports Electron's own
     // version when the app is not packaged, which reads as a wildly wrong
     // release number in a dialog people are asked to trust.
@@ -477,7 +515,12 @@ handle('app:support', async () => supportLinks());
  */
 handle('app:openExternal', async (target) => {
   const links = supportLinks();
-  const allowed = [links.sponsorUrl, links.repoUrl, links.issuesUrl].filter(Boolean);
+  const allowed = [
+    links.sponsorUrl, links.repoUrl, links.issuesUrl,
+    // The maker and the product site are addresses this app publishes about
+    // itself, so they belong on the list for the same reason the repo does.
+    links.vendorUrl, links.siteUrl,
+  ].filter(Boolean);
   const url = String(target ?? '');
   let parsed;
   try { parsed = new URL(url); } catch { throw new Error('That is not a link.'); }

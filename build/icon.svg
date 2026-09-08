@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Claude Session Manager">
+  <!--
+    The sidebar tree, made into a mark: one trunk, three sessions hanging off
+    it. Everything is on an 8px grid at 256, so at 32 and 16 the strokes still
+    land on whole pixels instead of turning into grey smear.
+  -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7fa8f8"/>
+      <stop offset="0.55" stop-color="#5c7bea"/>
+      <stop offset="1" stop-color="#4a53c8"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.20"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="256" height="256" rx="56" fill="url(#tile)"/>
+  <rect width="256" height="256" rx="56" fill="url(#sheen)"/>
+
+  <!-- The trunk, and an elbow into each session. -->
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.62" stroke-width="10" stroke-linecap="round">
+    <path d="M72 62 V 178"/>
+    <path d="M72 78 H 96"/>
+    <path d="M72 128 H 96"/>
+    <path d="M72 178 H 96"/>
+  </g>
+
+  <!-- Three sessions. Different lengths so it never reads as a menu icon. -->
+  <g fill="#ffffff">
+    <rect x="104" y="66" width="88" height="24" rx="12"/>
+    <rect x="104" y="116" width="72" height="24" rx="12" fill-opacity="0.9"/>
+    <rect x="104" y="166" width="80" height="24" rx="12" fill-opacity="0.9"/>
+  </g>
+</svg>

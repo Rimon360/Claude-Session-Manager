@@ -24,7 +24,16 @@ function appDataDir() {
       : process.platform === 'darwin'
         ? path.join(home(), 'Library', 'Application Support')
         : process.env.XDG_DATA_HOME || path.join(home(), '.local', 'share');
-  return path.join(base, 'ai-session-manager');
+
+  // The app was called AI Session Manager before it was called Claude
+  // Session Manager. An install from then has its backups, audit log and
+  // settings under the old name, and moving them is exactly the kind of
+  // thing this app exists not to do to people -- so the old directory keeps
+  // being used wherever one is already there. New installs get the new name.
+  const current = path.join(base, 'claude-session-manager');
+  const legacy = path.join(base, 'ai-session-manager');
+  if (!exists(current) && exists(legacy)) return legacy;
+  return current;
 }
 
 function backupsDir() { return path.join(appDataDir(), 'backups'); }
@@ -160,6 +169,89 @@ const BACKSLASH = String.fromCharCode(92);
  * only. The encoded original is always kept alongside it and is what we use
  * for any filesystem operation.
  */
+/**
+ * How long an encoded name may be before Claude Code shortens it.
+ *
+ * Nothing on the reference machine comes close -- its longest project folder
+ * is 106 characters -- but a deep path passes it easily, and macOS paths start
+ * from `/Users/<name>/` before the project even begins.
+ */
+const PROJECT_DIR_MAX = 200;
+
+/**
+ * Claude Code's project directory encoding.
+ *
+ * Every character that is not a letter or a digit becomes a dash, and runs are
+ * NOT collapsed: `F:\\0. Mobile apps` -> `F--0--Mobile-apps`, and
+ * `/Users/me/my-app` -> `-Users-me-my-app`. The rule is the same on every
+ * platform, which is what lets a bundle from one machine land somewhere a scan
+ * on another machine will still find it.
+ *
+ * Past 200 characters the name is cut to 200 and a hash of the ORIGINAL path
+ * is appended -- the original, not the encoded form, which is easy to get
+ * wrong. The hash is the classic `h * 31 + c` over UTF-16 units, kept in a
+ * 32-bit signed int, then made positive and written in base 36.
+ *
+ * Two sources of truth, not memory: the short form matches 53 of the 60
+ * working directories recorded on the reference machine (the other 7 point at
+ * folders that no longer exist, so there is nothing to match), and the long
+ * form is transcribed from the shipped `claude` binary, which carries it as
+ *
+ *   function k(e){return e.replace(/[^a-zA-Z0-9]/g,"-")}
+ *   function rk(e){let n=k(e);if(n.length<=DL)return n;return`${n.slice(0,DL)}-${we(e)}`}
+ *
+ * The long form is therefore read, not observed: no directory on the reference
+ * machine is long enough to have exercised it.
+ */
+function encodeClaudeProjectDir(projectPath) {
+  const raw = String(projectPath || '');
+  const encoded = raw.replace(/[^A-Za-z0-9]/g, '-');
+  if (encoded.length <= PROJECT_DIR_MAX) return encoded;
+  return encoded.slice(0, PROJECT_DIR_MAX) + '-' + claudePathHash(raw);
+}
+
+/** `h * 31 + c` in a 32-bit signed int, unsigned, base 36. */
+function claudePathHash(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+  return Math.abs(h).toString(36);
+}
+
+/**
+ * A relative path from a bundle, made safe to join to a root.
+ *
+ * Two different jobs, both of which have to happen before the path is used.
+ *
+ * Portability: a bundle written on Windows can be opened on macOS and the
+ * other way round, so separators are normalised rather than assumed. Left
+ * alone, `projects\\foo\\bar.jsonl` on Linux is not a directory tree at all --
+ * it is one file with backslashes in its name, dumped in the root.
+ *
+ * Safety: the value comes out of a file someone else may have written. A
+ * `..` segment, a leading slash or a drive letter would put the write outside
+ * the tool directory entirely. Those are refused rather than stripped, since
+ * a bundle containing one is not a bundle this app produced.
+ *
+ * Returns null when nothing usable is left, and callers must treat that as
+ * "no destination" rather than falling back to somewhere convenient.
+ */
+function safeRelativePath(rel) {
+  if (typeof rel !== 'string' || !rel) return null;
+  const parts = rel.replace(/\\/g, '/').split('/');
+  const out = [];
+  for (const raw of parts) {
+    const p = raw.trim();
+    if (!p || p === '.') continue;
+    if (p === '..') return null;
+    // A colon is never part of a Claude Code path segment, and on Windows it is
+    // two separate problems: `C:` is a drive, and `file:stream` writes to an
+    // alternate data stream that no directory listing shows.
+    if (p.includes(':')) return null;
+    out.push(p);
+  }
+  return out.length ? out.join(path.sep) : null;
+}
+
 function decodeClaudeProjectDir(name) {
   if (!name) return null;
   // Windows drive prefix: "F--1--Rimon-Labs" -> "F:\1. Rimon Labs"
@@ -175,5 +267,5 @@ function decodeClaudeProjectDir(name) {
 module.exports = {
   home, appDataDir, backupsDir, auditLogPath, settingsPath,
   claudeCodeRoots, claudeDesktopRoots, explicitDesktopRoots,
-  exists, isDir, decodeClaudeProjectDir, BACKSLASH,
+  exists, isDir, decodeClaudeProjectDir, encodeClaudeProjectDir, safeRelativePath, BACKSLASH,
 };

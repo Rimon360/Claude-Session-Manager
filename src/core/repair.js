@@ -57,15 +57,11 @@ const SAMPLE_ROWS = 250;
 const CONFIDENCE = { STRONG: 'strong', LIKELY: 'likely', NONE: 'none' };
 
 /**
- * Claude Code's project directory encoding.
- *
- * Every character that is not a letter or a digit becomes a dash, and runs are
- * NOT collapsed: `F:\0. Mobile apps` -> `F--0--Mobile-apps`. Verified against
- * the folders on a real installation.
+ * Claude Code's project directory encoding. Defined once, in paths, because
+ * a second copy of this rule that drifts is a session written to a folder
+ * nothing reads.
  */
-function encodeProjectDir(projectPath) {
-  return String(projectPath || '').replace(/[^A-Za-z0-9]/g, '-');
-}
+const encodeProjectDir = paths.encodeClaudeProjectDir;
 
 /** Every index record, including the ones that are missing their pointer. */
 function readAllRecords(root) {

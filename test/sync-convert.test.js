@@ -24,7 +24,7 @@ describe('sync: multi-account', () => {
     fs.writeFileSync(path.join(base, 'profileA', '.claude.json'), JSON.stringify({ oauthAccount: { accountUuid: 'acct-A', emailAddress: 'a@example.com' } }));
     fs.writeFileSync(path.join(base, 'profileB', '.claude.json'), JSON.stringify({ oauthAccount: { accountUuid: 'acct-B', emailAddress: 'b@example.com' } }));
 
-    process.env.CLAUDE_CONFIG_DIR = rootA + ';' + rootB;
+    process.env.CLAUDE_CONFIG_DIR = [rootA, rootB].join(path.delimiter);
     process.env.AISM_HOME_OVERRIDE = path.join(base, 'nohome');
     process.env.AISM_DATA_OVERRIDE = path.join(base, 'appdata');
     fs.mkdirSync(path.join(base, 'nohome'), { recursive: true });
@@ -123,7 +123,7 @@ describe('sync: multi-account', () => {
     fs.mkdirSync(path.join(rootC, 'projects', 'F--projects-demo'), { recursive: true });
     fs.writeFileSync(path.join(base, 'profileC', '.claude.json'),
       JSON.stringify({ oauthAccount: { accountUuid: 'acct-C', emailAddress: 'c@example.com' } }));
-    process.env.CLAUDE_CONFIG_DIR = [rootA, rootB, rootC].join(';');
+    process.env.CLAUDE_CONFIG_DIR = [rootA, rootB, rootC].join(path.delimiter);
 
     // A session only A has. The exchange count must differ from every other
     // fixture in this suite: the content hash ignores ids and timestamps, so
@@ -160,7 +160,7 @@ describe('sync: multi-account', () => {
     assert.ok(fs.existsSync(path.join(rootB, 'projects', 'F--projects-demo', onlyA + '.jsonl')),
       'B must have received the session that only A had');
 
-    process.env.CLAUDE_CONFIG_DIR = rootA + ';' + rootB + ';' + rootC;
+    process.env.CLAUDE_CONFIG_DIR = [rootA, rootB, rootC].join(path.delimiter);
   });
 
   it('reports a requested account it cannot find instead of silently skipping it', async () => {

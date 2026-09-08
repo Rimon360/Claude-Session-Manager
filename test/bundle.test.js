@@ -254,7 +254,7 @@ describe('bundle: import collisions', () => {
     await w.open();
     await w.addBuffer('readme.txt', 'hello');
     await w.close();
-    await assert.throws(() => bundle.readManifest(notBundle), 'not an AI Session Manager bundle');
+    await assert.throws(() => bundle.readManifest(notBundle), 'not a Claude Session Manager bundle');
   });
 
   it('refuses to execute an import without a plan token from a dry run', async () => {

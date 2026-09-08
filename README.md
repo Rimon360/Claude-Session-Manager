@@ -1,4 +1,4 @@
-# AI Session Manager
+# Claude Session Manager
 
 An Electron desktop app that discovers, backs up, exports, imports, merges and
 syncs local Claude Code session files, by reading the raw transcript files on
@@ -240,14 +240,14 @@ default instead of asking you to eyeball two transcripts:
 
 Choosing "replace" always backs up the previous bytes first and records the
 backup path in the audit log at
-`%APPDATA%/ai-session-manager/audit.log.jsonl`.
+`%APPDATA%/claude-session-manager/audit.log.jsonl`.
 
 ---
 
 ## Testing
 
 ```bash
-npm test                                    # 147 tests
+npm test                                    # 220 tests
 node --expose-gc test/run.js large          # memory assertions need --expose-gc
 AISM_TEST_HUGE_MB=1600 node --expose-gc test/run.js large   # 1.6 GB run
 ```
@@ -436,7 +436,5 @@ src/core/
   sync.js                   multi-account sync, cross-device migration
   safety.js                 atomic writes, backups, plan tokens
   audit.js                  append-only audit log
-test/                       125 tests
+test/                       220 tests
 ```
-#   C l a u d e - S e s s i o n - M a n a g e r  
- 

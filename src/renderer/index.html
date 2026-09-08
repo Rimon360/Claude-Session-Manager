@@ -4,15 +4,30 @@
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self';" />
-  <title>AI Session Manager</title>
+  <title>Claude Session Manager</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <!-- Custom title bar. The whole strip drags the window; controls opt out. -->
   <div class="titlebar" id="titlebar">
     <div class="tb-left">
-      <span class="mark" aria-hidden="true"></span>
-      <span class="tb-title">AI Session Manager</span>
+      <svg class="mark" viewBox="0 0 256 256" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="markTile" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#7fa8f8"/>
+            <stop offset="0.55" stop-color="#5c7bea"/>
+            <stop offset="1" stop-color="#4a53c8"/>
+          </linearGradient>
+        </defs>
+        <rect width="256" height="256" rx="56" fill="url(#markTile)"/>
+        <rect x="60" y="62" width="16" height="132" rx="8" fill="#fff" fill-opacity=".72"/>
+        <g fill="#fff">
+          <rect x="94" y="62" width="102" height="30" rx="15"/>
+          <rect x="94" y="113" width="62" height="30" rx="15"/>
+          <rect x="94" y="164" width="84" height="30" rx="15"/>
+        </g>
+      </svg>
+      <span class="tb-title">Claude Session Manager</span>
     </div>
     <div class="tb-right">
       <button class="tb-btn" id="winMin" title="Minimize" aria-label="Minimize">
@@ -84,6 +99,7 @@
       <div class="sidebar-section sidebar-foot">
         <button class="linkish" id="revealBackups" title="Replaced files are copied here before any overwrite">Backups</button>
         <button class="linkish" id="resetLayout" title="Panes and column widths back to defaults">Reset layout</button>
+        <button class="linkish vendor" id="vendorLink" hidden>Rimon Labs</button>
       </div>
     </aside>
 

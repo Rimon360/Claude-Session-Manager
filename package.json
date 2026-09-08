@@ -1,14 +1,18 @@
 {
-  "name": "ai-session-manager",
-  "productName": "AI Session Manager",
+  "name": "claude-session-manager",
+  "productName": "Claude Session Manager",
   "version": "0.1.0",
-  "description": "Discover, back up, export, import, merge and convert local AI coding-agent session files. Reads raw transcripts on disk; never trusts a tool's own index.",
+  "description": "Discover, back up, export, import, merge and sync local Claude Code session files. Reads raw transcripts on disk; never trusts a tool's own index.",
   "main": "src/main/main.js",
-  "author": "Rimon360",
+  "author": {
+    "name": "Rimon Labs LLC",
+    "url": "https://rimonlabs.com"
+  },
+  "homepage": "https://claudecoderecovery.com",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Rimon360/ai-session-manager.git"
+    "url": "https://github.com/Rimon360/claude-session-manager.git"
   },
   "funding": {
     "type": "ko-fi",
@@ -30,14 +34,15 @@
     "electron-updater": "^6.8.9"
   },
   "build": {
-    "appId": "dev.rimonlabs.aisessionmanager",
-    "productName": "AI Session Manager",
+    "appId": "dev.rimonlabs.claudesessionmanager",
+    "copyright": "Copyright © 2026 Rimon Labs LLC",
+    "productName": "Claude Session Manager",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "publish": [
       {
         "provider": "github",
         "owner": "Rimon360",
-        "repo": "ai-session-manager",
+        "repo": "claude-session-manager",
         "releaseType": "release"
       }
     ],
@@ -53,6 +58,7 @@
       "buildResources": "build"
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -69,6 +75,7 @@
       "deleteAppDataOnUninstall": false
     },
     "mac": {
+      "icon": "build/icon.png",
       "category": "public.app-category.developer-tools",
       "target": [
         {
@@ -88,6 +95,7 @@
       ]
     },
     "linux": {
+      "icon": "build/icon.png",
       "category": "Development",
       "target": [
         {

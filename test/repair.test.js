@@ -39,9 +39,12 @@ function isolate(base) {
   process.env.AISM_DATA_OVERRIDE = path.join(base, 'appdata');
   process.env.APPDATA = path.join(base, 'AppData', 'Roaming');
   process.env.LOCALAPPDATA = path.join(base, 'AppData', 'Local');
-  delete process.env.AISM_CLAUDE_DESKTOP_ROOTS;
   fs.mkdirSync(process.env.APPDATA, { recursive: true });
   fs.mkdirSync(process.env.LOCALAPPDATA, { recursive: true });
+  // The fixture builds a Windows-shaped Desktop root. APPDATA alone only
+  // reaches it on Windows, so the tests point the explicit override at it
+  // too and then run identically on every platform.
+  process.env.AISM_CLAUDE_DESKTOP_ROOTS = path.join(base, 'AppData', 'Roaming', 'Claude');
 }
 
 const enc = (p) => String(p).replace(/[^A-Za-z0-9]/g, '-');

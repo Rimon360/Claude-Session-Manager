@@ -116,11 +116,19 @@ describe("app storage: finding Claude on every platform", () => {
     try { return fn(); } finally { Object.defineProperty(process, "platform", real); }
   };
 
+  /**
+   * The resolver realpaths every root it returns. On a Windows CI runner
+   * os.tmpdir() is the 8.3 short form (C:\Users\RUNNER~1\...), so comparing
+   * a raw fixture path against a resolved one fails over path spelling
+   * rather than over anything the code did.
+   */
+  const real = (p) => { try { return fs.realpathSync.native(p); } catch { return p; } };
+
   /** Create <base>/<rel>/claude-code-sessions so the root is a real one. */
   const plant = (base, rel) => {
     const dir = path.join(base, ...rel);
     fs.mkdirSync(path.join(dir, "claude-code-sessions"), { recursive: true });
-    return dir;
+    return real(dir);
   };
 
   it("finds a normal macOS install", () => {
@@ -132,7 +140,7 @@ describe("app storage: finding Claude on every platform", () => {
 
     const found = asPlatform("darwin", () => paths().claudeDesktopRoots());
     assert.equal(found.length, 1, JSON.stringify(found));
-    assert.equal(found[0].root, want);
+    assert.equal(real(found[0].root), want);
     assert.equal(found[0].kind, "installer");
     restoreEnv(prev);
   });
@@ -147,7 +155,7 @@ describe("app storage: finding Claude on every platform", () => {
 
     const found = asPlatform("darwin", () => paths().claudeDesktopRoots());
     assert.equal(found.length, 1, JSON.stringify(found));
-    assert.equal(found[0].root, want);
+    assert.equal(real(found[0].root), want);
     assert.equal(found[0].kind, "container");
     restoreEnv(prev);
   });
@@ -163,7 +171,7 @@ describe("app storage: finding Claude on every platform", () => {
     const snap = plant(base, ["snap", "claude", "current", ".config", "Claude"]);
 
     const found = asPlatform("linux", () => paths().claudeDesktopRoots());
-    const roots = found.map((f) => f.root);
+    const roots = found.map((f) => real(f.root));
     for (const want of [plain, flat, snap]) assert.ok(roots.includes(want), want + " not in " + roots.join(", "));
     restoreEnv(prev);
   });
@@ -175,6 +183,7 @@ describe("app storage: finding Claude on every platform", () => {
     delete process.env.AISM_DATA_OVERRIDE;
     delete process.env.XDG_DATA_HOME;
 
+    // appDataDir does not realpath, so these compare raw to raw.
     const mac = asPlatform("darwin", () => paths().appDataDir());
     assert.equal(mac, path.join(base, "Library", "Application Support", "claude-session-manager"));
     const linux = asPlatform("linux", () => paths().appDataDir());
@@ -203,7 +212,7 @@ describe("app storage: finding Claude on every platform", () => {
     process.env.AISM_CLAUDE_DESKTOP_ROOTS = odd;
 
     const found = asPlatform("darwin", () => paths().claudeDesktopRoots());
-    assert.equal(found[0].root, odd);
+    assert.equal(real(found[0].root), real(odd));
     assert.equal(found[0].kind, "override");
     restoreEnv(prev);
   });

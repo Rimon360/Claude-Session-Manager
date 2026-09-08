@@ -43,6 +43,10 @@ function isolate(base) {
   // at the real installation.
   delete process.env.AISM_CLAUDE_DESKTOP_ROOTS;
   fs.mkdirSync(process.env.APPDATA, { recursive: true });
+  // The fixture builds a Windows-shaped Desktop root. APPDATA alone only
+  // reaches it on Windows, so the tests point the explicit override at it
+  // too and then run identically on every platform.
+  process.env.AISM_CLAUDE_DESKTOP_ROOTS = path.join(base, 'AppData', 'Roaming', 'Claude');
   fs.mkdirSync(process.env.LOCALAPPDATA, { recursive: true });
 }
 

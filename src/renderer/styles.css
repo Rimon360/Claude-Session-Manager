@@ -155,6 +155,7 @@ h1, h2, h3 { margin: 0; font-weight: 600; }
 /* Only shown when there is genuinely something to say about an update. */
 .btn-update { border-color: #3d558c; color: #cfe0ff; background: #1a2740; }
 .btn-update:hover:not(:disabled) { background: #223252; }
+.btn-update:disabled { opacity: 1; cursor: default; }
 .btn-update.is-ready { border-color: #1e4231; background: #14291f; color: var(--ok); }
 
 .update-bar { height: 4px; background: var(--bg-inset); border-radius: 3px; overflow: hidden; margin-top: 8px; }

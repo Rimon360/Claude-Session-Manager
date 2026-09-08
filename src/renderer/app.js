@@ -532,30 +532,42 @@ let updateState = null;
  * "Up to date" is not news, so it stays hidden unless the user opened the
  * dialog themselves.
  */
+/**
+ * The whole update surface: one button in the title bar.
+ *
+ * The download happens on its own, so the only state anyone has to act on
+ * is the last one. While it is fetching, the button reports progress and is
+ * not clickable -- there is nothing useful to do to a download in flight.
+ * When it is ready it says Restart, and that is the entire interaction.
+ */
 function paintUpdate(s) {
   updateState = s;
   const btn = $('updateBtn');
-  const show = { available: 'Update', downloading: null, downloaded: 'Restart', error: null }[s.state];
 
   if (s.state === 'downloading') {
     btn.hidden = false;
-    btn.textContent = `Downloading ${s.percent}%`;
+    btn.disabled = true;
+    btn.textContent = `Updating ${s.percent}%`;
     btn.className = 'btn btn-update';
-    btn.title = 'Downloading the update in the background';
+    btn.title = 'Downloading the update in the background. Nothing is installed until you restart.';
   } else if (s.state === 'downloaded') {
     btn.hidden = false;
-    btn.textContent = 'Restart';
+    btn.disabled = false;
+    btn.textContent = `Restart to update`;
     btn.className = 'btn btn-update is-ready';
-    btn.title = `Version ${s.version} is ready to install`;
+    btn.title = `Version ${s.version} is downloaded and ready. Click to install and reopen.`;
   } else if (s.state === 'available') {
+    // Only reachable when auto-download is switched off, or the download
+    // failed and left the update merely offered.
     btn.hidden = false;
-    btn.textContent = `Update ${s.version}`;
+    btn.disabled = false;
+    btn.textContent = `Update to ${s.version}`;
     btn.className = 'btn btn-update';
-    btn.title = 'A new version is available';
+    btn.title = 'A new version is available. Click to download it.';
   } else {
     btn.hidden = true;
+    btn.disabled = false;
   }
-  void show;
 }
 
 function updateLine(s) {
@@ -2491,7 +2503,34 @@ window.api.onProgress('progress:sync', (p) => {
   $('scanSummary').textContent = `Reading ${p.done}/${p.total}`;
 });
 
-$('updateBtn').addEventListener('click', openUpdateDialog);
+/**
+ * One click does the obvious thing for the state it is in.
+ *
+ * Ready means install and reopen. Available -- which only happens when the
+ * automatic download is off or has failed -- means fetch it. The dialog is
+ * still there for anyone who wants the release notes and the settings, but
+ * it is no longer in the way of the one action people came for.
+ */
+$('updateBtn').addEventListener('click', async () => {
+  const s = updateState || {};
+  if (s.state === 'downloaded') {
+    try {
+      await window.api.updateInstall();
+    } catch (err) {
+      const e = apiError(err);
+      // Refused because work is in flight. That is the guard doing its job,
+      // so say what is running rather than just failing.
+      toast(e.code === 'UPDATE_BUSY' ? 'Not while something is running' : 'Could not restart',
+        e.message, 'warn', 9000);
+    }
+    return;
+  }
+  if (s.state === 'available') {
+    window.api.updateDownload().catch((err) => toast('Download failed', apiError(err).message, 'err', 9000));
+    return;
+  }
+  openUpdateDialog();
+});
 
 window.api.onProgress('update:state', (s) => {
   paintUpdate(s);

@@ -21,7 +21,10 @@ const DEFAULTS = {
    */
   updates: {
     checkOnLaunch: true,
-    autoDownload: false,   // never pull a binary without being asked
+    // The update arrives in the background so the only thing ever asked of
+    // anyone is one click on Restart. Installing is still never automatic:
+    // the binary is fetched, and it sits there until someone says so.
+    autoDownload: true,
     channel: 'latest',     // 'latest' | 'beta'
     lastCheckedAt: null,
     skippedVersion: null,

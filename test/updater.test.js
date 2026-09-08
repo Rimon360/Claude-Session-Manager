@@ -25,7 +25,9 @@ describe('settings', () => {
   it('returns defaults when nothing is saved', () => {
     const s = settings.load();
     assert.equal(s.updates.checkOnLaunch, true);
-    assert.equal(s.updates.autoDownload, false, 'a binary must never be pulled without being asked');
+    // The update fetches itself so the only thing ever asked of anyone is one
+    // click on Restart. Installing is the switch that stays off.
+    assert.equal(s.updates.autoDownload, true, 'the update should arrive on its own');
     assert.equal(s.updates.channel, 'latest');
   });
 
@@ -145,8 +147,21 @@ describe('updater: guards', () => {
     assert.equal(s.checkOnLaunch, false);
     assert.equal(s.channel, 'beta');
     assert.equal(s.evil, undefined, 'unknown keys must not be persisted');
-    assert.equal(s.autoDownload, false, 'a non-boolean must not be written through');
+    // The rule is that the rubbish is rejected, so the value is still whatever
+    // the default is. Asserting a literal here would fail the day the default
+    // changes, which says nothing about the filter that is under test.
+    assert.equal(s.autoDownload, settings.DEFAULTS.updates.autoDownload,
+      'a non-boolean must not be written through');
+    assert.equal(typeof s.autoDownload, 'boolean');
   });
+
+  it('downloads on its own, so the only thing asked of anyone is Restart', () => {
+    // The update arrives in the background; installing still never happens
+    // without a click. Those are two different switches and only one of them
+    // is on.
+    assert.equal(settings.DEFAULTS.updates.autoDownload, true, 'the update should fetch itself');
+  });
+
 
   it('rejects an unknown channel', () => {
     const u = new Updater({});

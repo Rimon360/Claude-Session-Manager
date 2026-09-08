@@ -1,7 +1,7 @@
 {
   "name": "claude-code-recovery",
   "productName": "Claude Code Recovery",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Discover, back up, export, import, merge and sync local Claude Code session files. Reads raw transcripts on disk; never trusts a tool's own index.",
   "main": "src/main/main.js",
   "author": {

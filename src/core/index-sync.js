@@ -10,9 +10,16 @@
  *
  * What makes that safe here, verified against a real two-account install:
  *
- *   - A session shared by two accounts uses the SAME `local_<id>.json`
- *     filename and the same id in both, so a copy is verbatim -- no new ids to
- *     mint and no chance of two records claiming one session.
+ *   - A session shared by two accounts usually uses the SAME `local_<id>.json`
+ *     filename in both, so a copy is normally verbatim.
+ *   - But a record id is NOT unique across accounts. Continue a conversation
+ *     on a second account -- which is what people do when the first one hits
+ *     a limit -- and Claude Desktop writes a NEW transcript under the SAME
+ *     record id. Two accounts then hold one record id pointing at two
+ *     different conversations. Seen on the reference install: 2 of 137.
+ *     So the transcript id is the identity of a session here, and the record
+ *     id is only a filename, which a copy re-mints when the target has
+ *     already spent it on something else.
  *   - The records embed no account or organization id, so nothing has to be
  *     rewritten on the way across.
  *   - What DOES differ between two accounts' copies of one session is that
@@ -25,6 +32,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const claudeDesktop = require('./parsers/claude-desktop');
 const discovery = require('./discovery');
 const safety = require('./safety');
@@ -119,14 +127,20 @@ function classify(entry, sourceAcct, targetRec, allowTombstoned = false) {
   if (!targetRec.usable) {
     return action(ACTION.BLOCKED, entry, sourceAcct, target, { reason: target.reason });
   }
-  if (targetRec.entries.has(entry.desktopSessionId)) {
+  // The transcript is what identifies a session. Asking the record id first
+  // was wrong: two accounts can hold one record id pointing at two different
+  // conversations, and the check then reported a session as present when the
+  // conversation was not in that account at all -- silently refusing to copy
+  // the exact sessions someone opens this app to fix.
+  if (entry.cliSessionId) {
+    if (targetRec.byCliSession.has(entry.cliSessionId)) {
+      return action(ACTION.ALREADY_PRESENT, entry, sourceAcct, target,
+        { reason: 'This account already lists this session under its own record.' });
+    }
+  } else if (targetRec.entries.has(entry.desktopSessionId)) {
+    // No transcript pointer to compare, so the record id is all there is.
     return action(ACTION.ALREADY_PRESENT, entry, sourceAcct, target,
       { reason: 'This account already lists it; its own activity state is left alone.' });
-  }
-  // The same conversation under a different record id: still present.
-  if (entry.cliSessionId && targetRec.byCliSession.has(entry.cliSessionId)) {
-    return action(ACTION.ALREADY_PRESENT, entry, sourceAcct, target,
-      { reason: 'This account already lists this session under its own record.' });
   }
   if (targetRec.tombstones.has(bareId(entry.desktopSessionId))) {
     if (!allowTombstoned) {
@@ -141,6 +155,18 @@ function classify(entry, sourceAcct, targetRec, allowTombstoned = false) {
       reason: 'This account had deleted this session. Copying it back undoes that.',
     });
   }
+  // The target may already spend this record id on a different conversation.
+  // Copying the file under its own name would replace that record and lose
+  // the other session, so the copy is given a record id of its own.
+  if (targetRec.entries.has(entry.desktopSessionId)) {
+    const newRecordId = 'local_' + crypto.randomUUID();
+    return action(ACTION.COPY, entry, sourceAcct, target, {
+      newRecordId,
+      destPath: path.join(target.historyDir, newRecordId + '.json'),
+      reason: 'This account uses that record id for a different conversation, so the copy is written under a new one.',
+    });
+  }
+
   return action(ACTION.COPY, entry, sourceAcct, target);
 }
 
@@ -444,6 +470,17 @@ async function execute(planToken, options = {}) {
       if (fs.existsSync(a.destPath)) {
         res.applied = 'skipped';
         res.error = 'The account gained this record after the preview was taken; it was left alone.';
+      } else if (a.newRecordId) {
+        // Re-minted: the record must carry the id it is filed under, or
+        // Desktop has two files disagreeing about which record this is.
+        const body = JSON.parse(fs.readFileSync(a.sourcePath, 'utf8'));
+        body.sessionId = a.newRecordId;
+        await safety.writeFileAtomic(a.destPath, JSON.stringify(body), {
+          allowOverwrite: false,
+          reason: 'account-history ' + plan.mode + ' (new record id)',
+        });
+        res.newRecordId = a.newRecordId;
+        res.applied = 'written';
       } else {
         await safety.copyFileAtomic(a.sourcePath, a.destPath, {
           allowOverwrite: false,

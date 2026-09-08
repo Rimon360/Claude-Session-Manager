@@ -1092,8 +1092,16 @@ async function syncOneSession(row, button) {
     // it is something to state clearly and let the person decide.
     const plan = await window.api.planAccountSyncAll(null, [row.cliSessionId], true);
     if (!plan.summary.copy) {
-      toast('Nothing to copy', 'Every account already lists this session.', 'info', 8000);
-      if (button) { button.disabled = false; button.textContent = label; }
+      // Say what the plan actually found rather than assuming why. There are
+      // several reasons a copy is not planned -- the target deleted it, an
+      // account's history folder could not be identified -- and announcing the
+      // wrong one sends people looking in the wrong place.
+      const why = plan.actions.find((a) => a.kind !== 'copy');
+      toast('Nothing to copy', why?.reason || 'Every account already lists this session.', 'info', 8000);
+      // The comparison was read when the view opened, and Claude Desktop keeps
+      // writing while the window is open. Re-read it, so a row that is no
+      // longer out of sync stops being offered.
+      await showComparison();
       return;
     }
     openIndexPlanModal(row.title || 'Sync this session', plan, async () => {

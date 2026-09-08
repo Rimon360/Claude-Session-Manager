@@ -602,3 +602,119 @@ describe('account history: copying records between accounts', () => {
     restoreEnv(prev);
   });
 });
+
+/**
+ * One record id, two conversations.
+ *
+ * Continue a conversation on a second account -- which is what people do when
+ * the first one hits a limit -- and Claude Desktop writes a NEW transcript
+ * under the SAME record id. The two accounts then hold one record id pointing
+ * at two different conversations.
+ *
+ * This shipped broken. The planner asked "does the target have this record
+ * id?" before "does the target have this session?", so it reported the session
+ * as already present and quietly refused to copy it -- the exact sessions
+ * someone opens this app to fix. Found against a real two-account install
+ * where 2 of 137 records collided this way.
+ */
+describe('index sync: one record id, two conversations', () => {
+  const dirs = [];
+  afterAll(() => { for (const d of dirs) H.rmrf(d); });
+
+  /** Both accounts hold record `local_shared`, pointing at different sessions. */
+  function collided(name) {
+    const base = H.tmpDir(name); dirs.push(base);
+    isolate(base);
+    const dirA = orgDir(base, A, ORG_A);
+    const dirB = orgDir(base, B, ORG_B);
+    fs.mkdirSync(dirA, { recursive: true });
+    fs.mkdirSync(dirB, { recursive: true });
+    const a = record(dirA, 'shared', { cliSessionId: 'transcript-in-A', title: 'Kaizen v1.0.0' });
+    const b = record(dirB, 'shared', { cliSessionId: 'transcript-in-B', title: 'Kaizen v1.0.0' });
+    return { base, dirA, dirB, a, b };
+  }
+
+  it('plans a copy instead of calling the session already present', async () => {
+    const prev = savedEnv();
+    const { dirB } = collided('collide-plan');
+    const { indexSync } = mods();
+
+    const plan = await indexSync.planSyncAll({ cliSessionIds: ['transcript-in-A'] });
+    assert.equal(plan.summary.copy, 1, JSON.stringify(plan.summary));
+    assert.equal(plan.summary.alreadyPresent, 0, 'the target does not have this conversation');
+    const copy = plan.actions.find((x) => x.kind === 'copy');
+    assert.equal(copy.cliSessionId, 'transcript-in-A');
+    restoreEnv(prev);
+  });
+
+  it('gives the copy its own record id rather than landing on the taken one', async () => {
+    const prev = savedEnv();
+    const { dirB, b } = collided('collide-newid');
+    const { indexSync } = mods();
+
+    const plan = await indexSync.planSyncAll({ cliSessionIds: ['transcript-in-A'] });
+    const copy = plan.actions.find((x) => x.kind === 'copy');
+    assert.ok(copy.newRecordId, 'a colliding copy must be re-minted');
+    assert.notEqual(copy.destPath, b, 'it must not be written over the record already there');
+    restoreEnv(prev);
+  });
+
+  it('leaves the record already there byte-for-byte alone', async () => {
+    const prev = savedEnv();
+    const { dirB, b } = collided('collide-keep');
+    const before = fs.readFileSync(b);
+    const { indexSync } = mods();
+
+    const plan = await indexSync.planSyncAll({ cliSessionIds: ['transcript-in-A'] });
+    const res = await indexSync.execute(plan.token);
+    assert.equal(res.summary.written, 1, JSON.stringify(res.summary));
+
+    assert.equal(Buffer.compare(fs.readFileSync(b), before), 0,
+      'the other conversation\'s record must be untouched');
+    restoreEnv(prev);
+  });
+
+  it('ends with the target listing both conversations, each under its own id', async () => {
+    const prev = savedEnv();
+    const { dirB } = collided('collide-both');
+    const { indexSync } = mods();
+
+    const plan = await indexSync.planSyncAll({ cliSessionIds: ['transcript-in-A'] });
+    await indexSync.execute(plan.token);
+
+    const records = listRecords(dirB).map((f) =>
+      JSON.parse(fs.readFileSync(path.join(dirB, f), 'utf8')));
+    assert.equal(records.length, 2, 'the target keeps its own and gains the other');
+    const sessions = records.map((r) => r.cliSessionId).sort();
+    assert.deepEqual(sessions, ['transcript-in-A', 'transcript-in-B']);
+
+    // A record has to carry the id it is filed under, or Desktop has two
+    // files disagreeing about which record this is.
+    for (const f of listRecords(dirB)) {
+      const body = JSON.parse(fs.readFileSync(path.join(dirB, f), 'utf8'));
+      assert.equal('local_' + body.sessionId.replace(/^local_/, '') + '.json', f,
+        'record ' + f + ' calls itself ' + body.sessionId);
+    }
+    restoreEnv(prev);
+  });
+
+  it('still calls it present when the SAME conversation is there under another id', async () => {
+    // The mirror case, which must keep working: same transcript, different
+    // record id, is genuinely already present and must not be copied twice.
+    const prev = savedEnv();
+    const base = H.tmpDir('collide-mirror'); dirs.push(base);
+    isolate(base);
+    const dirA = orgDir(base, A, ORG_A);
+    const dirB = orgDir(base, B, ORG_B);
+    fs.mkdirSync(dirA, { recursive: true });
+    fs.mkdirSync(dirB, { recursive: true });
+    record(dirA, 'idA', { cliSessionId: 'same-transcript' });
+    record(dirB, 'idB', { cliSessionId: 'same-transcript' });
+    const { indexSync } = mods();
+
+    const plan = await indexSync.planSyncAll({ cliSessionIds: ['same-transcript'] });
+    assert.equal(plan.summary.copy, 0, 'the conversation is already there');
+    assert.greater(plan.summary.alreadyPresent, 0);
+    restoreEnv(prev);
+  });
+});

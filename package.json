@@ -1,6 +1,6 @@
 {
-  "name": "claude-session-manager",
-  "productName": "Claude Session Manager",
+  "name": "claude-code-recovery",
+  "productName": "Claude Code Recovery",
   "version": "0.1.0",
   "description": "Discover, back up, export, import, merge and sync local Claude Code session files. Reads raw transcripts on disk; never trusts a tool's own index.",
   "main": "src/main/main.js",
@@ -8,11 +8,11 @@
     "name": "Rimon Labs LLC",
     "url": "https://rimonlabs.com"
   },
-  "homepage": "https://claudecoderecovery.com",
+  "homepage": "https://claudecoderecovery.rimonlabs.com",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Rimon360/claude-session-manager.git"
+    "url": "https://github.com/Rimon360/Claude-Session-Manager.git"
   },
   "funding": {
     "type": "ko-fi",
@@ -36,13 +36,13 @@
   "build": {
     "appId": "dev.rimonlabs.claudesessionmanager",
     "copyright": "Copyright © 2026 Rimon Labs LLC",
-    "productName": "Claude Session Manager",
+    "productName": "Claude Code Recovery",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "publish": [
       {
         "provider": "github",
         "owner": "Rimon360",
-        "repo": "claude-session-manager",
+        "repo": "Claude-Session-Manager",
         "releaseType": "release"
       }
     ],

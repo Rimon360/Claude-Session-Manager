@@ -77,7 +77,7 @@ async function exportBundle(entries, destZipPath, options = {}) {
     bundleSchemaVersion: BUNDLE_SCHEMA_VERSION,
     ussSchemaVersion: uss.SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
-    exportedBy: 'claude-session-manager',
+    exportedBy: 'claude-code-recovery',
     platform: process.platform,
     note,
     sessions: [],
@@ -325,7 +325,7 @@ async function addDirToZip(writer, dir, root, record) {
 async function readManifest(zipPath) {
   const entries = await readCentralDirectory(zipPath);
   const manEntry = entries.find((e) => e.name === MANIFEST_NAME);
-  if (!manEntry) throw new Error(`${path.basename(zipPath)} has no ${MANIFEST_NAME}; it is not a Claude Session Manager bundle.`);
+  if (!manEntry) throw new Error(`${path.basename(zipPath)} has no ${MANIFEST_NAME}; it is not a Claude Code Recovery bundle.`);
   const buf = await readEntryBuffer(zipPath, manEntry);
   let manifest;
   try { manifest = JSON.parse(buf.toString('utf8')); } catch (err) { throw new Error(`manifest.json is not valid JSON: ${err.message}`); }

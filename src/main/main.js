@@ -67,7 +67,7 @@ function createWindow() {
     minWidth: 1040,
     minHeight: 640,
     backgroundColor: '#0f1115',
-    title: 'Claude Session Manager',
+    title: 'Claude Code Recovery',
     // Only for a run from source. A packaged build carries the icon inside
     // the executable, and build/ is a build resource that is not shipped --
     // so this is absent there, which is why it is looked up rather than
@@ -378,7 +378,7 @@ handle('export:run', async (uids, options = {}) => {
   const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
     title: 'Export session bundle',
     defaultPath: `ai-sessions-${new Date().toISOString().slice(0, 10)}.aism.zip`,
-    filters: [{ name: 'Claude Session Manager bundle', extensions: ['zip'] }],
+    filters: [{ name: 'Claude Code Recovery bundle', extensions: ['zip'] }],
   });
   if (canceled || !filePath) return { canceled: true };
 
@@ -404,7 +404,7 @@ handle('import:pick', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
     title: 'Open session bundle',
     properties: ['openFile'],
-    filters: [{ name: 'Claude Session Manager bundle', extensions: ['zip'] }],
+    filters: [{ name: 'Claude Code Recovery bundle', extensions: ['zip'] }],
   });
   if (canceled || !filePaths?.length) return { canceled: true };
   return { canceled: false, path: filePaths[0] };
@@ -427,7 +427,7 @@ handle('migration:export', async (uids, options = {}) => {
   const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
     title: 'Create migration bundle',
     defaultPath: `ai-sessions-migration-${new Date().toISOString().slice(0, 10)}.aism.zip`,
-    filters: [{ name: 'Claude Session Manager bundle', extensions: ['zip'] }],
+    filters: [{ name: 'Claude Code Recovery bundle', extensions: ['zip'] }],
   });
   if (canceled || !filePath) return { canceled: true };
   const res = await sync.planMigration(entries, filePath, options);

@@ -2404,7 +2404,7 @@ $('supportBtn').addEventListener('click', async () => {
 function openSupportDialog(links) {
   openModal('Support this project', (body) => {
     body.append(el('div', 'warn-box info',
-      'Claude Session Manager is free and open source. If it has saved you some history, a contribution helps keep it maintained.'));
+      'Claude Code Recovery is free and open source. If it has saved you some history, a contribution helps keep it maintained.'));
 
     const linkRow = (label, url, note) => {
       if (!url) return;

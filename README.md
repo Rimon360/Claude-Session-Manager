@@ -1,4 +1,4 @@
-# Claude Session Manager
+# Claude Code Recovery
 
 An Electron desktop app that discovers, backs up, exports, imports, merges and
 syncs local Claude Code session files, by reading the raw transcript files on
@@ -240,7 +240,7 @@ default instead of asking you to eyeball two transcripts:
 
 Choosing "replace" always backs up the previous bytes first and records the
 backup path in the audit log at
-`%APPDATA%/claude-session-manager/audit.log.jsonl`.
+`%APPDATA%/claude-code-recovery/audit.log.jsonl`.
 
 ---
 

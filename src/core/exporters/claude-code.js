@@ -49,7 +49,7 @@ function buildRows(session, options = {}) {
       userType: 'external',
       cwd: projectPath || null,
       sessionId,
-      version: 'claude-session-manager-converted',
+      version: 'claude-code-recovery-converted',
       gitBranch: session.meta?.git?.branch ?? null,
       uuid: u,
       timestamp: row.timestamp || now,
